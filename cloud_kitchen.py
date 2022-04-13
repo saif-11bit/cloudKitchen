@@ -1,109 +1,144 @@
+# Cloud Kitchen prep time
 from datetime import datetime, timedelta
 
 
-MENU={
-    'item1': 10,
-    'item2': 20,
-    'item3': 30,
-    'item4': 50,
-    'item5': 10
-}
+class CloudKitchen:
 
-KITCHEN_STOVES = {
-    'stove1': 'item1',
-    'stove2': 'item2',
-    'stove3': None,
-    'stove4':None
-}
+    def __init__(self):
+        self.stoves = {
+            '1': {
+                'item': None,
+                'available': True
+            },
+            '2': {
+                'item': None,
+                'available': True
+            },
+            '3': {
+                'item': None,
+                'available': True
+            },
+        }
+        self.menu_items = {
+            '1': {
+                'name': 'Biryani',
+                'prep_time': 40
+            },
+            '2': {
+                'name': 'Pizza',
+                'prep_time': 30
+            },
+            '3': {
+                'name': 'Burger',
+                'prep_time': 15
+            },
+            '4': {
+                'name': 'Momos',
+                'prep_time': 10
+            }
+        }
+        self.order_completed = {}
+        self.order_on_stove = {}
+        # {
+        #     '<order:id>':{
+        #         'item1':'item:expected_time',
+        #         'item2':'item:expected_time',
+        #     },
+        #     '<order:id>':{
+        #         'item1':'item:expected_time',
+        #     },
+        # }
+        self.order_queue = {}
+        # {
+        #     '<order:id>':{
+        #         'item1':'item:prep_time',
+        #         'item2':'item:prep_time',
+        #     },
+        #     '<order:id>':{
+        #         'item1':'item:prep_time',
+        #         'item2':'item:prep_time',
+        #         'item3':'item:prep_time',
+        #     },
+        # }
+        self.original_order = {}
 
-
-FOODS_PREPARING = {}
-
-def get_preparation_time(items):
-    cookingTimings = []
-    waiting_time = 0
-    for i in items:
-        if i in KITCHEN_STOVES.values():
-            cookingTimings.append(MENU[i])
-            cooking_end_time = datetime.now() + timedelta(minutes = MENU[i])
-            FOODS_PREPARING[i] = cooking_end_time
-        else:
-            # check if any value in KITCHEN_STOVES is None
-            if None in KITCHEN_STOVES.values():
-                key = list(KITCHEN_STOVES.keys())[list(KITCHEN_STOVES.values()).index(None)]
-                # assign item to available stove
-                KITCHEN_STOVES[key] = i
-                cookingTimings.append(MENU[i])
-                cooking_end_time = datetime.now() + timedelta(minutes = MENU[i])
-                FOODS_PREPARING[i] = cooking_end_time
-                
+    def check_availablity(self):
+        """Will check the stove availablity"""
+        avail_stove = []
+        booked_stove = []
+        for stove_id in self.stoves.keys():
+            if self.stoves[stove_id]["available"]:
+                print(f"Stove {stove_id} is available")
+                avail_stove.append(stove_id)
             else:
-                # check for minimum_time in which stove will be available .i.e (cooking_end_time - current time)
-                
-                # waiting_time += minimum_time
-                # 
-                pass
+                print(f"Stove {stove_id} is booked")
+                booked_stove.append(stove_id)
+        return avail_stove, booked_stove
+
+    def new_orders(self, order):
+        """Receive new orders from orders"""
+        avail_stove, booked_stove = self.check_availablity()
+        for order_id, order_items in order.items():
+            # Copy the same in self.original_order
+            self.original_order[order_id] = order_items
+            # Insert in self.order_queue
+            self.order_queue[order_id] = {}
+            for item in order_items:
+                self.order_queue[order_id][f"{item}"] = self.menu_items[
+                    f"{item}"]['prep_time']
+
+        print('Before update_order_stove order_queue', self.order_queue)
+        for stove_id in avail_stove:
+            if len(self.order_queue) < 1:
+                break
+            self.update_order_stove(stove_id)
+            print('order_on_stove', self.order_on_stove)
+
+        print('After update_order_stove order_queue', self.order_queue)
+
+    def update_order_stove(self, stove_id):
+        """Will update the order_queue, order_on_stove and stove  
+    availability dict."""
+
+        # Update the stove with the first item in order_queue
+        first_order_in_queue = tuple(self.order_queue.values())[0]
+        first_item_in_order_queue = tuple(first_order_in_queue)[0]
+        self.stoves[stove_id]['item'] = first_item_in_order_queue
+
+        # Updating stove availability
+        self.stoves[stove_id]['available'] = False
+
+        # Append in order_on_stove
+        first_order_id = tuple(self.order_queue.keys())[0]
+        # Check if the dictionary exist with order_id exist
+        if self.order_on_stove.get(f'{first_order_id}') is None:
+            self.order_on_stove[f'{first_order_id}'] = {}
+
+        prep_end_time = datetime.now() + timedelta(
+            minutes=self.menu_items[f'{first_item_in_order_queue}']
+            ['prep_time'])
+        self.order_on_stove[f'{first_order_id}'][
+            f'{first_item_in_order_queue}'] = prep_end_time
+
+        # Remove from order_queue
+        self.order_queue[f'{first_order_id}'].pop(first_item_in_order_queue)
+
+        # Check if the order_queue with the first_order_id has no data. Then delete it
+        if len(self.order_queue.get(f'{first_order_id}')) < 1:
+            del self.order_queue[f'{first_order_id}']
+
+    def get_waiting_time(self, item_id):
+        pass
+
+    def cooking_update(self):
+        #
+        pass
 
 
-    print(FOODS_PREPARING)
-    print(f'============Your order will be prepared in {max(cookingTimings) + waiting_time} minutes===========')
-
-
-get_preparation_time(['item1','item2', 'item3', 'item5'])
-
-
-
-# class KitchenStove:
-    
-#     def __init__(self, assigned=False, available_in=None, next=None):
-#         self.assigned = assigned
-#         self.available_in = available_in
-#         self.next = next
-    
-#     def get_total_available_spaces():
-#         pass
-    
-#     def get_active_spaces():
-#         pass
-    
-#     def no_of_active_spaces():
-#         pass
-
-#     def get_next_available_spaces():
-#         pass
-# # ========================================================
-
-# class Menu:
-    
-#     def __init__(self, name: None, cookingTime: None):
-#         self.name = name
-#         self.cookingTime = cookingTime
-        
-# # =======================================================
-
-
-# class Order:
-#     def __init__(self):
-#         self.item = None
-        
-#     def no_of_items(self):
-#         pass
-        
-    
-#     def get_preparation_time(self):
-#         if self.no_of_items <= KitchenStove.no_of_active_spaces():
-#             # check item with max time
-#             # assign space: true
-#             # return food preparation time
-#             pass
-#         else:
-#             # assign avalalble space to items
-#             # mt = get assigned item max time
-#             # assign next available spaces to remaining items
-#             # wt = get waiting time
-#             # mtr = get max food preparation time from remaining items
-#             # if mt >= wt + mtr:
-#                 # Preparation time = mt
-#             # else:
-#                 # wt + mtr will be preparation time
-#                 pass
+if __name__ == "__main__":
+    a = CloudKitchen()
+    # Order will be a dict containg order_id as a key and order items as a value that will be a  list
+    first_order = {'1': [4, 2]}
+    a.new_orders(first_order)
+    second_order = {'2': [3, 4]}
+    a.new_orders(second_order)
